@@ -14,8 +14,15 @@
   <span class="spacer"></span>
   <button class="small" id="btn-theme" title="配色">配色</button>
 </header>
+<nav class="tabs" id="tabs">
+  <button class="tab-btn" data-tab="status">現状<span class="sub" id="tab-status-sub"></span></button>
+  <button class="tab-btn" data-tab="search">検索<span class="sub" id="tab-search-sub"></span></button>
+  <button class="tab-btn" data-tab="saved">保存・履歴<span class="sub" id="tab-saved-sub"></span></button>
+</nav>
 <main>
-  <div id="inputs">
+  <!-- ========== 現状 ========== -->
+  <div class="tab" data-tab="status">
+    <div class="hint tab-lead">あなたの進み具合と持ち物。ここで入れたものは全部の検索に効く。入力したら下の「現状を保存」。</div>
     <details class="panel" open id="sec-progress">
       <summary>進行度 <span class="sub" id="progress-sub"></span></summary>
       <div class="body">
@@ -34,47 +41,16 @@
       </div>
     </details>
 
-    <details class="panel" open id="sec-weapon">
-      <summary>武器 <span class="sub" id="weapon-sub"></span></summary>
+    <details class="panel" open id="sec-gates">
+      <summary>解放済みのミッション・イベント <span class="sub" id="gates-sub"></span></summary>
       <div class="body">
-        <div class="row">
-          <select id="weapon-kind"></select>
-          <label><input type="checkbox" id="weapon-final" checked> 最終強化のみ</label>
-        </div>
-        <input type="search" id="weapon-search" placeholder="武器名・派生で絞り込み">
-        <div class="row" id="weapon-cols"><label>表示する列</label></div>
-        <div class="list-box" style="max-height:300px"><table class="table weapon-table" id="weapon-list"></table></div>
-        <div class="weapon-info" id="weapon-info">武器を選ぶか、下でスロットを手入力</div>
-        <div class="row">
-          <label>スロット手入力</label>
-          <select id="wslot1"></select><select id="wslot2"></select><select id="wslot3"></select>
-          <button class="small" id="weapon-clear">武器選択を解除</button>
-        </div>
-        <div class="hint">武器を選ぶとスロットと武器に付いているスキルが自動で入る。選ばない場合は手入力のスロットだけで計算する。</div>
+        <div class="hint">HR やチャプターだけでは決まらない解放条件。<b>まだやっていないものはチェックを外す</b>（外すとその条件が要る防具は候補から消える）。HR が足りないものは最初から候補に入らない。</div>
+        <div id="gate-list"></div>
+        <div class="row"><button class="small" id="gates-all">全部済にする</button><button class="small" id="gates-none">全部未にする</button></div>
       </div>
     </details>
 
-    <details class="panel" open id="sec-skills">
-      <summary>スキル <span class="sub" id="skills-sub"></span></summary>
-      <div class="body">
-        <div class="chips" id="target-chips"></div>
-        <div class="row">
-          <input type="search" id="skill-search" placeholder="スキル名で絞り込み">
-        </div>
-        <div class="row">
-          <label><input type="radio" name="skind" value="all" checked> 全部</label>
-          <label><input type="radio" name="skind" value="armor"> 防具</label>
-          <label><input type="radio" name="skind" value="weapon"> 武器</label>
-          <label><input type="radio" name="skind" value="set"> シリーズ</label>
-          <label><input type="radio" name="skind" value="group"> グループ</label>
-          <button class="small" id="skills-clear" style="margin-left:auto">全解除</button>
-        </div>
-        <div class="hint">各スキルのプルダウンでレベルを指定。【n】は防具珠のサイズ、「武」は武器側のスキル（武器本体と武器珠でしか付かない）。シリーズ／グループは「レベル（必要部位数）」。</div>
-        <div class="skill-grid" id="skill-list"></div>
-      </div>
-    </details>
-
-    <details class="panel" id="sec-charms" data-open-on-hash>
+    <details class="panel" id="sec-charms">
       <summary>護石 <span class="sub" id="charms-sub"></span></summary>
       <div class="body">
         <div class="row">
@@ -119,6 +95,49 @@
         </div>
       </div>
     </details>
+  </div>
+
+  <!-- ========== 検索 ========== -->
+  <div class="tab" data-tab="search">
+    <details class="panel" open id="sec-weapon">
+      <summary>武器 <span class="sub" id="weapon-sub"></span></summary>
+      <div class="body">
+        <div class="row">
+          <select id="weapon-kind"></select>
+          <label><input type="checkbox" id="weapon-final" checked> 最終強化のみ</label>
+        </div>
+        <input type="search" id="weapon-search" placeholder="武器名・派生で絞り込み">
+        <div class="row" id="weapon-cols"><label>表示する列</label></div>
+        <div class="list-box" style="max-height:300px"><table class="table weapon-table" id="weapon-list"></table></div>
+        <div class="weapon-info" id="weapon-info">武器を選ぶか、下でスロットを手入力</div>
+        <div class="row">
+          <label>スロット手入力</label>
+          <select id="wslot1"></select><select id="wslot2"></select><select id="wslot3"></select>
+          <button class="small" id="weapon-clear">武器選択を解除</button>
+        </div>
+        <div class="hint">武器を選ぶとスロットと武器に付いているスキルが自動で入る。選ばない場合は手入力のスロットだけで計算する。</div>
+      </div>
+    </details>
+
+    <details class="panel" open id="sec-skills">
+      <summary>スキル <span class="sub" id="skills-sub"></span></summary>
+      <div class="body">
+        <div class="chips" id="target-chips"></div>
+        <div class="row">
+          <input type="search" id="skill-search" placeholder="スキル名で絞り込み">
+        </div>
+        <div class="row">
+          <label><input type="radio" name="skind" value="all" checked> 全部</label>
+          <label><input type="radio" name="skind" value="armor"> 防具</label>
+          <label><input type="radio" name="skind" value="weapon"> 武器</label>
+          <label><input type="radio" name="skind" value="set"> シリーズ</label>
+          <label><input type="radio" name="skind" value="group"> グループ</label>
+          <button class="small" id="skills-clear" style="margin-left:auto">全解除</button>
+        </div>
+        <div class="hint">各スキルのプルダウンでレベルを指定。【n】は防具珠のサイズ、「武」は武器側のスキル（武器本体と武器珠でしか付かない）。シリーズ／グループは「レベル（必要部位数）」。</div>
+        <div class="skill-grid" id="skill-list"></div>
+      </div>
+    </details>
 
     <details class="panel" id="sec-armor">
       <summary>除外・固定 <span class="sub" id="armor-sub"></span></summary>
@@ -158,7 +177,15 @@
       </div>
     </details>
 
-    <details class="panel" id="sec-saved">
+    <div id="results">
+      <section class="panel"><div class="body" id="results-head"><span class="hint">条件を入れて「検索」。進み具合や持ち物は「現状」タブで入れる。</span></div></section>
+      <div id="results-list"></div>
+    </div>
+  </div>
+
+  <!-- ========== 保存・履歴 ========== -->
+  <div class="tab" data-tab="saved">
+    <details class="panel" open id="sec-saved">
       <summary>保存した装備・履歴 <span class="sub" id="saved-sub"></span></summary>
       <div class="body">
         <div id="saved-list"></div>
@@ -176,17 +203,12 @@
         <div class="row"><button class="small" id="btn-clear-all">このブラウザの保存データを全部消す</button></div>
       </div>
     </details>
-
-    <div class="toolbar">
-      <button class="primary" id="btn-search">検索</button>
-      <button id="btn-save" title="いまの入力をこのブラウザに保存する">現状を保存</button>
-      <span class="status" id="status"></span>
-    </div>
   </div>
 
-  <div id="results">
-    <section class="panel"><div class="body" id="results-head"><span class="hint">条件を入れて「検索」。入力は「現状を保存」を押した時点でこのブラウザに保存され、次に開いたときに復元される。</span></div></section>
-    <div id="results-list"></div>
+  <div class="toolbar">
+    <button class="primary" id="btn-search">検索</button>
+    <button id="btn-save" title="いまの入力をこのブラウザに保存する">現状を保存</button>
+    <span class="status" id="status"></span>
   </div>
 </main>
 <footer>

@@ -36,9 +36,15 @@ def fetch(ep, offline):
 
 
 def dump(name, obj):
+    """配列は 1 レコード 1 行（人が読めて diff も取れる）。辞書は indent 付き"""
     OUT.mkdir(exist_ok=True)
     p = OUT / name
-    p.write_text(json.dumps(obj, ensure_ascii=False, separators=(",", ":")), encoding="utf-8", newline="\n")
+    if isinstance(obj, list):
+        body = ",\n".join(" " + json.dumps(x, ensure_ascii=False, separators=(",", ":")) for x in obj)
+        text = "[\n" + body + "\n]\n"
+    else:
+        text = json.dumps(obj, ensure_ascii=False, indent=1) + "\n"
+    p.write_text(text, encoding="utf-8", newline="\n")
     print(f"  {name}: {p.stat().st_size/1024:.0f} KB", flush=True)
 
 
@@ -102,7 +108,8 @@ def main():
                 req = t.get(rk)
                 if req is None:
                     continue
-                alt = {"ch": chidx[req["ch"]], "hr": req.get("hr", 0), "tags": sorted(req.get("tags", [])), "src": m["name"]}
+                alt = {"ch": chidx[req["ch"]], "hr": req.get("hr", 0), "tags": sorted(req.get("tags", [])), "src": m["name"],
+                       "gates": sorted({g for g in (req.get("gate"), req.get("gate2")) if g})}
                 if alt not in e[rk]:
                     e[rk].append(alt)
     item_fixed = {k: v for k, v in prog["items"].items() if not k.startswith("_")}
@@ -112,12 +119,13 @@ def main():
     def item_alternatives(item, rank):
         """素材 1 つの要求：満たせばよい選択肢の一覧 [{ch,hr,tags,src}]"""
         name = item["name"]
-        base = {"ch": chidx["1-1"] if rank == "low" else chidx["4-1"], "hr": 0 if rank == "low" else 9, "tags": [], "src": None}
+        base = {"ch": chidx["1-1"] if rank == "low" else chidx["4-1"], "hr": 0 if rank == "low" else 9, "tags": [], "src": None, "gates": []}
         if name in item_fixed:
             f = item_fixed[name]
             if "low" in f or "high" in f:
                 f = f.get(rank) or f.get("high" if rank == "low" else "low")
-            return [{"ch": max(base["ch"], chidx[f["ch"]]), "hr": max(base["hr"], f.get("hr", 0)), "tags": sorted(f.get("tags", [])), "src": name}]
+            return [{"ch": max(base["ch"], chidx[f["ch"]]), "hr": max(base["hr"], f.get("hr", 0)), "tags": sorted(f.get("tags", [])), "src": name,
+                     "gates": sorted({g for g in (f.get("gate"), f.get("gate2")) if g})}]
         e = item_alts.get(item["id"])
         if e and item["icon"]["kind"] not in ("ore", "bone"):  # 鉱石・骨は採取でも取れるのでランクの既定値
             alts = e[rank] or e["high" if rank == "low" else "low"]
@@ -144,7 +152,7 @@ def main():
     for x in raw["armor"]:
         rank = x["rank"]
         mats, srcs = [], set()
-        base = [{"ch": chidx["1-1"] if rank == "low" else chidx["4-1"], "hr": 0 if rank == "low" else 9, "tags": [], "src": None}]
+        base = [{"ch": chidx["1-1"] if rank == "low" else chidx["4-1"], "hr": 0 if rank == "low" else 9, "tags": [], "src": None, "gates": []}]
         mats.append(base)
         for mm in x["crafting"]["materials"]:
             alts = item_alternatives(mm["item"], rank)
@@ -153,7 +161,8 @@ def main():
             srcs.update(a["src"] for a in alts if a["src"])
         so = set_over.get(x["armorSet"]["name"])
         if so:
-            mats.append([{"ch": chidx[so["ch"]], "hr": so.get("hr", 0), "tags": sorted(so.get("tags", [])), "src": so.get("note", "セット")}])
+            mats.append([{"ch": chidx[so["ch"]], "hr": so.get("hr", 0), "tags": sorted(so.get("tags", [])), "src": so.get("note", "セット"),
+                          "gates": sorted({g for g in (so.get("gate"), so.get("gate2")) if g})}])
             srcs.add(so.get("note", "セット上書き"))
         ch, hr, tags = summarize(mats)
         res = x["resistances"]
@@ -168,7 +177,8 @@ def main():
             "bonusSkills": sorted({s["skill"]["id"] for s in x["skills"] if s["skill"]["kind"] in ("set", "group")}),
             "set": {"id": x["armorSet"]["id"], "name": x["armorSet"]["name"]},
             "req": {"ch": ch, "hr": hr, "tags": tags,
-                    "mats": [[[a["ch"], a["hr"], a["tags"]] for a in alts] for alts in mats]},
+                    "gates": sorted({g for alts in mats for a in alts for g in a["gates"]}),
+                    "mats": [[[a["ch"], a["hr"], a["tags"], a["gates"]] for a in alts] for alts in mats]},
             "src": ", ".join(sorted(srcs)),
         })
 
@@ -199,6 +209,7 @@ def main():
         "dataVersion": version["version"], "source": "wilds.mhdb.io (LartTyler/mhdb-wilds-data)",
         "chapters": chapters, "chapterLabels": prog["chapter_labels"], "hrToChapter": prog["hr_to_chapter"],
         "hrMilestones": prog["hr_milestones"],
+        "gates": [{"id": k, **v} for k, v in prog.get("gates", {}).items() if not k.startswith("_")],
         "weaponKinds": sorted({w["kind"] for w in weapons}),
         "counts": {"armor": len(armors), "decorations": len(decos), "charms": len(charms), "weapons": len(weapons), "skills": len(skills)},
     }

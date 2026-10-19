@@ -29,7 +29,7 @@ let seq = 0;
 const pending = new Map();
 
 const defaultState = () => ({
-  hr: 100, chapter: "auto", incLow: false, incEvent: true, incArena: true, incTrade: true, incSeason: true,
+  hr: 100, chapter: "auto", incLow: false, incEvent: true, incArena: true, incTrade: true, incSeason: true, lockedGates: [], tab: "search",
   weapon: { kind: "great-sword", id: null, final: true, manualSlots: [0, 0, 0], cols: ["atk", "elem", "slots", "skills"], sortKey: "rarity", sortDir: -1 },
   targets: {},
   charms: { craftable: true, topOnly: true, customs: [] },
@@ -95,7 +95,7 @@ function progressQuery() {
   const hr = Math.max(1, +state.hr || 1);
   const ch = state.chapter === "auto" ? chapterIndexAuto(hr) : chapters.indexOf(state.chapter);
   const highStartCh = chapters.indexOf("4-1");
-  return { ch, hr, includeLow: ch < highStartCh ? true : !!state.incLow, includeEvent: !!state.incEvent, includeArena: !!state.incArena, includeTrade: state.incTrade !== false, includeSeason: state.incSeason !== false, highStartCh };
+  return { ch, hr, includeLow: ch < highStartCh ? true : !!state.incLow, includeEvent: !!state.incEvent, includeArena: !!state.incArena, includeTrade: state.incTrade !== false, includeSeason: state.incSeason !== false, lockedGates: state.lockedGates || [], highStartCh };
 }
 function renderProgress() {
   const sel = $("#chapter");
@@ -118,9 +118,38 @@ function updateProgressSub() {
   const next = data.meta.hrMilestones.find(([h]) => h > p.hr);
   const n = data.armor.filter((a) => armorOk(a, p)).length;
   $("#progress-sub").textContent = `HR${p.hr}・Ch${chName}・候補 ${n} 部位`;
+  $("#tab-status-sub").textContent = `HR${p.hr}`;
+  $("#gates-sub").textContent = (state.lockedGates || []).length ? `${state.lockedGates.length} 件 未` : "全部 済";
   $("#hr-hint").textContent = (ms ? `HR${ms[0]}〜: ${ms[1]}` : "") + (next ? `　／　次: HR${next[0]} ${next[1]}` : "");
 }
 const armorOk = armorAvailable;
+
+// ---------- 解放ゲート ----------
+function renderGates() {
+  const box = $("#gate-list");
+  box.innerHTML = "";
+  const locked = new Set(state.lockedGates || []);
+  let lastGroup = null;
+  for (const g of data.meta.gates || []) {
+    if (g.group !== lastGroup) { lastGroup = g.group; box.append(el("div", { class: "gate-grp" }, g.group)); }
+    const cb = el("input", { type: "checkbox", onchange: (e) => {
+      const set = new Set(state.lockedGates || []);
+      e.target.checked ? set.delete(g.id) : set.add(g.id);
+      state.lockedGates = [...set];
+      persist(); updateProgressSub(); renderGates();
+    } });
+    cb.checked = !locked.has(g.id);
+    box.append(el("label", { class: "gate" + (locked.has(g.id) ? " locked" : "") }, cb, " ", g.label, locked.has(g.id) ? el("span", { class: "badge" }, "未") : null));
+  }
+}
+
+// ---------- タブ ----------
+function showTab(name) {
+  state.tab = name;
+  for (const t of document.querySelectorAll(".tab")) t.classList.toggle("active", t.dataset.tab === name);
+  for (const b of document.querySelectorAll(".tab-btn")) b.classList.toggle("active", b.dataset.tab === name);
+  try { localStorage.setItem("mhws-sim.v1.tab", name); } catch {}
+}
 
 // ---------- 武器 ----------
 function renderWeaponKinds() {
@@ -285,6 +314,7 @@ function renderTargetChips() {
     box.append(el("span", { class: "chip" }, `${s.name} Lv${state.targets[sid]}`, el("button", { onclick: () => setTarget(sid, 0), title: "外す" }, "×")));
   }
   $("#skills-sub").textContent = ids.length ? `${ids.length} 件` : "未選択";
+  const ts = $("#tab-search-sub"); if (ts) ts.textContent = ids.length ? String(ids.length) : "";
 }
 
 // ---------- 護石 ----------
@@ -511,7 +541,9 @@ function resultCard(res, i, targetIds, q, inv, weaponPlan) {
   for (const p of [...PARTS, "charm"]) {
     const pc = res.pieces[p];
     pieces.append(el("span", { class: "part" }, PART_LABEL[p]),
-      el("span", {}, pc ? pc.name : el("span", { class: "hint" }, "なし"), pc && pc.alts.length ? el("span", { class: "alts" }, `　同等: ${pc.alts.map((a) => a.name).join("、")}`) : null),
+      el("span", {}, pc ? pc.name : el("span", { class: "hint" }, "なし"),
+        pc && pc.id != null && typeof pc.id === "number" && (data.armorById.get(pc.id)?.req.gates || []).length ? el("span", { class: "alts" }, `　要: ${data.armorById.get(pc.id).req.gates.map((g) => (data.meta.gates.find((x) => x.id === g) || {}).label || g).join("／")}`) : null,
+        pc && pc.alts.length ? el("span", { class: "alts" }, `　同等: ${pc.alts.map((a) => a.name).join("、")}`) : null),
       el("span", { class: "slots" }, pc ? slotStr(pc.slots) : ""));
   }
   card.append(pieces);
@@ -582,6 +614,7 @@ function renderSaved() {
     el("span", { class: "nm" }, x.label),
     el("button", { class: "small", onclick: () => { state.targets = { ...x.targets }; state.weapon = { ...state.weapon, ...x.weapon }; state.hr = x.hr; state.chapter = x.chapter; persist(); renderAll(); } }, "復元"))));
   $("#saved-sub").textContent = `${saved.length} 件保存・履歴 ${h.length}`;
+  $("#tab-saved-sub").textContent = saved.length ? String(saved.length) : "";
 }
 
 // ---------- 配色 ----------
@@ -621,7 +654,10 @@ function bind() {
   $("#sort").addEventListener("change", (e) => { state.sort = e.target.value; persist(); });
   $("#max-results").addEventListener("change", (e) => { state.maxResults = +e.target.value || 50; persist(); });
   $("#allow-empty").addEventListener("change", (e) => { state.allowEmpty = e.target.checked; persist(); });
-  $("#btn-search").addEventListener("click", doSearch);
+  $("#btn-search").addEventListener("click", () => { showTab("search"); doSearch(); });
+  for (const b of document.querySelectorAll(".tab-btn")) b.addEventListener("click", () => showTab(b.dataset.tab));
+  $("#gates-all").addEventListener("click", () => { state.lockedGates = []; persist(); updateProgressSub(); renderGates(); });
+  $("#gates-none").addEventListener("click", () => { state.lockedGates = (data.meta.gates || []).map((g) => g.id); persist(); updateProgressSub(); renderGates(); });
   $("#btn-save").addEventListener("click", saveNow);
   document.addEventListener("keydown", (e) => { if (e.key === "s" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); saveNow(); } });
   let clearArmed = 0;
@@ -646,6 +682,11 @@ function bind() {
 }
 function renderAll() {
   renderProgress();
+  renderGates();
+  let tab = state.tab || "search";
+  try { tab = localStorage.getItem("mhws-sim.v1.tab") || tab; } catch {}
+  if (location.hash.startsWith("#tab-")) tab = location.hash.slice(5);
+  showTab(["status", "search", "saved"].includes(tab) ? tab : "search");
   renderWeaponKinds();
   renderWeaponCols();
   renderWeaponList();

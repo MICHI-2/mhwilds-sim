@@ -142,6 +142,14 @@ try {
   r = search(data, { targets: { [jakuten.id]: 5 }, weapon: { slots: [], skills: [] }, progress: PROG_ALL, charms: { craftable: false, topOnly: true, customs: [{ name: "テスト", skills: [[jakuten.id, 3]], slots: [3] }] }, options: { maxResults: 5 } });
   check("手入力護石が使える", r.ok && r.results.length > 0 && r.results.some((res) => res.pieces.charm && res.pieces.charm.name === "テスト"));
 
+  // --- 解放ゲート（HR は足りていてもミッション未クリアなら候補に入らない）
+  const queen = data.armor.find((a) => a.name === "クイーンピアスα");
+  check("クイーンα は queen ゲート付き", queen.req.gates.includes("queen"), JSON.stringify(queen.req.gates));
+  check("ゲート全部済なら HR100 でクイーン可", armorAvailable(queen, { ...PROG_ALL, hr: 100, lockedGates: [] }));
+  check("queen を未にするとクイーン不可", !armorAvailable(queen, { ...PROG_ALL, hr: 100, lockedGates: ["queen"] }));
+  const lagi = data.armor.find((a) => a.name.startsWith("ラギアヘルム"));
+  check("ラギア防具は狂界ゲートで消える", !armorAvailable(lagi, { ...PROG_ALL, lockedGates: ["kyokai"] }) && armorAvailable(lagi, { ...PROG_ALL, lockedGates: [] }));
+
   // --- 護石の武器スキル（鑑定護石）
   r = search(data, { targets: { [kougeki.id]: 2 }, weapon: { slots: [1], skills: [] }, progress: PROG_ALL, charms: { craftable: false, topOnly: true, customs: [{ name: "攻撃護石", skills: [[kougeki.id, 2]], slots: [] }] }, options: { maxResults: 5 } });
   check("護石の武器スキルで武器側が足りる", r.ok && r.results.length > 0 && r.results[0].pieces.charm?.name === "攻撃護石", JSON.stringify(r).slice(0, 300));

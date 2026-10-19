@@ -45,7 +45,8 @@ export function armorAvailable(a, progress) {
   if (a.rank === "low" && !progress.includeLow) return false;
   if (a.rank === "high" && progress.ch < progress.highStartCh) return false;
   const p = progress;
-  if (a.req.mats) return a.req.mats.every((alts) => alts.some(([ch, hr, tags]) => ch <= p.ch && hr <= p.hr && tags.every((t) => tagOk(t, p))));
+  const locked = p.lockedGates ? new Set(p.lockedGates) : null;
+  if (a.req.mats) return a.req.mats.every((alts) => alts.some(([ch, hr, tags, gates]) => ch <= p.ch && hr <= p.hr && tags.every((t) => tagOk(t, p)) && (!locked || !(gates || []).some((g) => locked.has(g)))));
   if (a.req.ch > p.ch || a.req.hr > p.hr) return false;
   return a.req.tags.every((t) => tagOk(t, p));
 }
