@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MHWilds スキルシミュ</title>
+<meta name="description" content="モンスターハンターワイルズのスキルシミュレータ（β）。進行度・武器・護石・装飾品所持数を考慮して防具構成を探索する。">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header>
+  <h1>MHWilds スキルシミュ <span class="badge">β</span></h1>
+  <span class="meta" id="meta">データ読み込み中…</span>
+  <span class="spacer"></span>
+  <button class="small" id="btn-theme" title="配色">配色</button>
+</header>
+<main>
+  <div id="inputs">
+    <details class="panel" open id="sec-progress">
+      <summary>進行度 <span class="sub" id="progress-sub"></span></summary>
+      <div class="body">
+        <div class="row">
+          <label>HR</label><input type="number" id="hr" min="1" max="999" value="100">
+          <label>いま進行中のチャプター</label><select id="chapter"></select>
+        </div>
+        <div class="row">
+          <label><input type="checkbox" id="inc-low"> 下位防具も候補に入れる</label>
+          <label><input type="checkbox" id="inc-event" checked> イベントクエスト・コラボ防具（常設）</label>
+          <label><input type="checkbox" id="inc-season" checked> 季節祭事・期間限定の防具（開催中だけ入手可）</label>
+          <label><input type="checkbox" id="inc-arena" checked> 闘技大会防具</label>
+          <label><input type="checkbox" id="inc-trade" checked> もちもの交換の素材で作る防具</label>
+        </div>
+        <div class="hint" id="hr-hint"></div>
+      </div>
+    </details>
+
+    <details class="panel" open id="sec-weapon">
+      <summary>武器 <span class="sub" id="weapon-sub"></span></summary>
+      <div class="body">
+        <div class="row">
+          <select id="weapon-kind"></select>
+          <label><input type="checkbox" id="weapon-final" checked> 最終強化のみ</label>
+        </div>
+        <input type="search" id="weapon-search" placeholder="武器名・派生で絞り込み">
+        <div class="row" id="weapon-cols"><label>表示する列</label></div>
+        <div class="list-box" style="max-height:300px"><table class="table weapon-table" id="weapon-list"></table></div>
+        <div class="weapon-info" id="weapon-info">武器を選ぶか、下でスロットを手入力</div>
+        <div class="row">
+          <label>スロット手入力</label>
+          <select id="wslot1"></select><select id="wslot2"></select><select id="wslot3"></select>
+          <button class="small" id="weapon-clear">武器選択を解除</button>
+        </div>
+        <div class="hint">武器を選ぶとスロットと武器に付いているスキルが自動で入る。選ばない場合は手入力のスロットだけで計算する。</div>
+      </div>
+    </details>
+
+    <details class="panel" open id="sec-skills">
+      <summary>スキル <span class="sub" id="skills-sub"></span></summary>
+      <div class="body">
+        <div class="chips" id="target-chips"></div>
+        <div class="row">
+          <input type="search" id="skill-search" placeholder="スキル名で絞り込み">
+        </div>
+        <div class="row">
+          <label><input type="radio" name="skind" value="all" checked> 全部</label>
+          <label><input type="radio" name="skind" value="armor"> 防具</label>
+          <label><input type="radio" name="skind" value="weapon"> 武器</label>
+          <label><input type="radio" name="skind" value="set"> シリーズ</label>
+          <label><input type="radio" name="skind" value="group"> グループ</label>
+          <button class="small" id="skills-clear" style="margin-left:auto">全解除</button>
+        </div>
+        <div class="hint">各スキルのプルダウンでレベルを指定。【n】は防具珠のサイズ、「武」は武器側のスキル（武器本体と武器珠でしか付かない）。シリーズ／グループは「レベル（必要部位数）」。</div>
+        <div class="skill-grid" id="skill-list"></div>
+      </div>
+    </details>
+
+    <details class="panel" id="sec-charms" data-open-on-hash>
+      <summary>護石 <span class="sub" id="charms-sub"></span></summary>
+      <div class="body">
+        <div class="row">
+          <label><input type="checkbox" id="charm-craftable" checked> 作製できる護石をすべて所持とみなす</label>
+        </div>
+        <div class="row">
+          <label><input type="checkbox" id="charm-top" checked> 各護石は最高ランクだけ使う</label>
+        </div>
+        <h4 class="h">登録した護石（鑑定で出た護石など）</h4>
+        <table class="table" id="custom-charms"></table>
+        <h4 class="h">護石を追加</h4>
+        <div class="cc-form">
+          <div class="row"><label>名前</label><input type="text" id="cc-name" placeholder="任意（空なら自動）"></div>
+          <div class="row"><label>スロット</label><select id="cc-slot1"></select><select id="cc-slot2"></select><select id="cc-slot3"></select></div>
+          <div class="row"><label>スキル</label><div class="chips" id="cc-chips"><span class="hint">下の一覧でレベルを選ぶ（最大 3 つ）</span></div></div>
+          <div class="row"><label></label><input type="search" id="cc-search" placeholder="スキル名で絞り込み" style="flex:1"></div>
+          <div class="skill-grid" id="cc-grid"></div>
+          <div class="row" style="margin-top:8px"><label></label><button id="cc-add">この護石を追加</button><button class="small" id="cc-clear">選択を消す</button><span class="hint" id="cc-msg"></span></div>
+        </div>
+      </div>
+    </details>
+
+    <details class="panel" id="sec-decos">
+      <summary>装飾品 <span class="sub" id="decos-sub"></span></summary>
+      <div class="body">
+        <div class="row">
+          <label><input type="radio" name="decomode" value="all" checked> 全部所持（無制限）</label>
+          <label><input type="radio" name="decomode" value="none"> 使わない</label>
+          <label><input type="radio" name="decomode" value="count"> 所持数を入力</label>
+        </div>
+        <div id="deco-editor" hidden>
+          <div class="row">
+            <input type="search" id="deco-search" placeholder="装飾品名・スキル名で絞り込み">
+            <label><input type="radio" name="decokind" value="armor" checked> 防具用</label>
+            <label><input type="radio" name="decokind" value="weapon"> 武器用</label>
+            <button class="small" id="deco-fill">表示中を 9 に</button>
+            <button class="small" id="deco-zero">表示中を 0 に</button>
+          </div>
+          <div class="list-box" style="max-height:320px">
+            <table class="table deco-table" id="deco-table"></table>
+          </div>
+        </div>
+      </div>
+    </details>
+
+    <details class="panel" id="sec-armor">
+      <summary>除外・固定 <span class="sub" id="armor-sub"></span></summary>
+      <div class="body">
+        <div class="two">
+          <div>
+            <div class="hint">除外する防具</div>
+            <div class="chips" id="exclude-chips"></div>
+            <input type="search" id="exclude-search" placeholder="防具名で検索して追加">
+            <div class="list-box" id="exclude-list" style="max-height:160px"></div>
+          </div>
+          <div>
+            <div class="hint">固定する防具（部位ごと）</div>
+            <div id="fixed-rows"></div>
+            <input type="search" id="fixed-search" placeholder="防具名で検索して固定">
+            <div class="list-box" id="fixed-list" style="max-height:160px"></div>
+          </div>
+        </div>
+      </div>
+    </details>
+
+    <details class="panel" id="sec-options">
+      <summary>検索の設定</summary>
+      <div class="body">
+        <div class="row">
+          <label>並べ替え</label>
+          <select id="sort">
+            <option value="def">防御力が高い順</option>
+            <option value="slots">空きスロットが多い順</option>
+            <option value="extra">余剰スキルが多い順</option>
+          </select>
+          <label>表示件数</label><input type="number" id="max-results" value="50" min="1" max="500">
+        </div>
+        <div class="row">
+          <label><input type="checkbox" id="allow-empty"> 部位を空にするのも許す（防御力を捨てる）</label>
+        </div>
+      </div>
+    </details>
+
+    <details class="panel" id="sec-saved">
+      <summary>保存した装備・履歴 <span class="sub" id="saved-sub"></span></summary>
+      <div class="body">
+        <div id="saved-list"></div>
+        <div class="hint" style="margin-top:8px">検索条件の履歴（クリックで復元）</div>
+        <div id="history-list"></div>
+        <details class="sub" style="margin-top:8px"><summary>設定の書き出し・読み込み（別の端末へ持っていく）</summary>
+          <textarea id="io-text" rows="4" placeholder="「書き出す」で全設定の JSON がここに出る。別端末ではここに貼って「読み込む」。"></textarea>
+          <div class="row">
+            <button class="small" id="btn-export">書き出す</button>
+            <button class="small" id="btn-copy">コピー</button>
+            <button class="small" id="btn-import">読み込む</button>
+            <span class="hint" id="io-msg"></span>
+          </div>
+        </details>
+        <div class="row"><button class="small" id="btn-clear-all">このブラウザの保存データを全部消す</button></div>
+      </div>
+    </details>
+
+    <div class="toolbar">
+      <button class="primary" id="btn-search">検索</button>
+      <button id="btn-save" title="いまの入力をこのブラウザに保存する">現状を保存</button>
+      <span class="status" id="status"></span>
+    </div>
+  </div>
+
+  <div id="results">
+    <section class="panel"><div class="body" id="results-head"><span class="hint">条件を入れて「検索」。入力は「現状を保存」を押した時点でこのブラウザに保存され、次に開いたときに復元される。</span></div></section>
+    <div id="results-list"></div>
+  </div>
+</main>
+<footer>
+  データ: <a href="https://wilds.mhdb.io/" target="_blank" rel="noopener">wilds.mhdb.io</a>（<a href="https://github.com/LartTyler/mhdb-wilds-data" target="_blank" rel="noopener">mhdb-wilds-data</a>）／
+  進行度の対応表は手入力（出典: 各攻略サイト）。ゲーム内容の権利は CAPCOM に帰属します。
+</footer>
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
